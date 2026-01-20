@@ -1,6 +1,6 @@
 # Enterprise Usage Monitoring & Admin Platform
 
-![dashboard_preview.png](dashboard_preview.png)
+![Dashboard Preview](dashboard_preview.png)
 
 > A Multi-Tenant SaaS Monitoring System built with Flask, MySQL, and Tailwind CSS.
 > Features **Real-Time Usage Tracking**, **Rate Limiting (Blocking)**, and an **Interactive Admin Dashboard**.
@@ -16,50 +16,55 @@
 
 ---
 
-## 🛠️ System Design & Architecture
-
-### 1. The Interceptor (Decorator Pattern)
-Instead of hardcoding logic into every endpoint, I implemented a Python Decorator (`@monitor_api`) that acts as a middleware.
-* **Intercepts** every incoming request.
-* **Validates** the `X-API-KEY` against the database.
-* **Checks** if the tenant has crossed their usage limit.
-* **Logs** the request timestamp and latency asynchronously.
-
-### 2. Database Schema (MySQL)
-The system uses a normalized relational schema:
-* **Tenants:** Stores Company Name and API Keys.
-* **Users:** Linked to Tenants (One-to-Many).
-* **UsageLogs:** Stores `timestamp`, `endpoint`, `response_time`, and `status_code` for audit trails.
-
-### 3. Frontend Architecture
-* **UI:** Built with **Tailwind CSS** for a responsive, modern interface.
-* **Live Updates:** A lightweight JavaScript engine fetches JSON data from `/api/dashboard-data` every 2 seconds to update the DOM dynamically.
+## 🧠 Assumptions Made
+* **Authentication:** I assumed that clients will pass the API Key via the header `X-API-KEY`.
+* **Tenant Isolation:** I assumed all tenants share the same database tables but are logically separated by `tenant_id` (Shared Database, Shared Schema approach).
+* **Usage Limits:** For demonstration purposes, the limit is set globally in the code (e.g., 1000 requests) rather than per-tenant in the database, though the schema supports adding a `limit` column to the `Tenant` table in the future.
+* **Concurrency:** The system assumes a standard WSGI deployment; for extremely high traffic, the logging mechanism would ideally be offloaded to a queue (Redis/Celery).
 
 ---
 
-## 🔌 API Documentation
+## 📊 Data Modeling Approach
+The system uses a **Normalized Relational Schema** in MySQL:
+
+1.  **Tenants (Parent):** Represents the enterprise clients.
+    * Fields: `id`, `name`, `api_key` (Unique Index).
+2.  **Users (Child):** Represents the end-users belonging to a tenant.
+    * Fields: `id`, `username`, `tenant_id` (Foreign Key).
+3.  **UsageLogs (Audit Trail):** Stores individual API hits.
+    * Fields: `id`, `tenant_id` (FK), `endpoint`, `response_time_ms`, `timestamp`.
+
+---
+
+## 🧪 How Dummy Data is Used
+To facilitate immediate testing and demonstration without manual data entry:
+* I created a dedicated setup route: **`/setup`**.
+* **Tenant Generation:** It automatically creates two diverse tenants ("Acme Corp" and "Wayne Ent") with valid UUID API Keys.
+* **Traffic Simulation:** (Optional in code) It can generate historical usage logs to populate the dashboard immediately, so the Admin doesn't see an empty screen upon first launch.
+
+---
+
+## 🔌 API Structure
 
 ### 1. Get Users (Protected Route)
 Fetches the list of active users for the tenant.
 * **Endpoint:** `GET /api/v1/users`
 * **Headers:** `X-API-KEY: <Your_Tenant_Key>`
-* **Response (Success):**
-    ```json
-    {
-      "users": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
-    }
-    ```
-* **Response (Blocked):**
-    ```json
-    {
-      "error": "Plan Limit Exceeded",
-      "message": "Usage: 50/50. Access Blocked."
-    }
-    ```
+* **Response (Success):** Returns JSON list of users.
+* **Response (Blocked):** Returns `429 Plan Limit Exceeded` error.
 
-### 2. Setup / Reset Data
-A utility script to seed the database with tenants ("Acme Corp" and "Wayne Ent") and reset counters to zero.
-* **Endpoint:** `GET /setup`
+### 2. Live Dashboard Data
+Internal API used by the frontend JavaScript engine.
+* **Endpoint:** `GET /api/dashboard-data`
+* **Response:** Returns real-time usage counts and status flags (Normal/Blocked) for the dashboard.
+
+---
+
+## 🔮 Future Improvements
+* **Visual Analytics:** Integrate Chart.js to show usage trends over time (e.g., "Requests per Hour").
+* **Asynchronous Logging:** Offload the database writes to a background worker (Celery + Redis) to reduce API latency.
+* **Role-Based Access:** Add separate login portals for "Super Admin" vs "Tenant Admin".
+* **Dynamic Limits:** Move the rate limit configuration to the Database so each tenant can have a different tier (e.g., Basic vs Pro).
 
 ---
 
@@ -67,54 +72,21 @@ A utility script to seed the database with tenants ("Acme Corp" and "Wayne Ent")
 
 ### Prerequisites
 * Python 3.x
-* MySQL Server (Running)
+* MySQL Server
 
 ### Installation Steps
-
-1.  **Clone the Repository**
+1.  **Clone & Install:**
     ```bash
     git clone [https://github.com/Harzh-k/enterprise-usage-monitor.git](https://github.com/Harzh-k/enterprise-usage-monitor.git)
     cd enterprise-usage-monitor
-    ```
-
-2.  **Install Dependencies**
-    ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Configure Database**
-    Open `config.py` and update your MySQL credentials:
-    ```python
-    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:YOUR_PASSWORD@localhost/enterprise_db'
-    ```
+2.  **Database Config:**
+    Update `config.py` with your MySQL credentials.
 
-4.  **Initialize Database**
-    Open MySQL Workbench or Terminal and run:
-    ```sql
-    CREATE DATABASE enterprise_db;
-    ```
-
-5.  **Start the Server**
+3.  **Run:**
     ```bash
     python run.py
     ```
-
-6.  **Access the Platform**
-    * **Dashboard:** [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
-    * **Initialize Data:** Click the **"Reset Data"** button on the dashboard.
-
----
-
-## 📂 Project Structure
-```text
-enterprise-monitor/
-├── app/
-│   ├── templates/
-│   │   └── dashboard.html    # Admin UI with Live Polling JS
-│   ├── __init__.py           # Flask App Factory
-│   ├── models.py             # Database Models (SQLAlchemy)
-│   └── routes.py             # Business Logic & Rate Limiting
-├── config.py                 # Database Config
-├── run.py                    # Entry Point
-├── requirements.txt          # Python Dependencies
-└── README.md                 # Documentation
+    Access at `http://127.0.0.1:5000/`.
