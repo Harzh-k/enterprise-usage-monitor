@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enterprise Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-10">
+
+    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <h1 class="text-3xl font-bold text-gray-800">📊 Enterprise Usage Admin</h1>
+                <span class="flex h-3 w-3 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span class="text-xs text-green-600 font-semibold uppercase tracking-wider">Live</span>
+            </div>
+            <a href="/setup" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow">🔄 Reset Data</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                        <th class="p-4 border-b">Tenant Name</th>
+                        <th class="p-4 border-b">API Key</th>
+                        <th class="p-4 border-b text-center">Requests</th>
+                        <th class="p-4 border-b text-center">Plan Limit</th>
+                        <th class="p-4 border-b text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600 text-sm font-light">
+                    {% for company in stats %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="p-4 font-medium text-gray-800 text-base">{{ company.name }}</td>
+                        <td class="p-4"><code class="bg-gray-100 text-red-500 px-2 py-1 rounded text-xs font-mono select-all">{{ company.api_key }}</code></td>
+                        <td class="p-4 text-center text-blue-600 font-bold text-base"><span id="count-{{ company.api_key }}">{{ company.usage_count }}</span></td>
+
+                        <td class="p-4 text-center">{{ company.limit }}</td>
+
+                        <td class="p-4 text-center">
+                            <span id="status-{{ company.api_key }}"
+                                  class="py-1 px-3 rounded-full text-xs
+                                  {% if company.usage_count >= company.limit %}bg-red-600 text-white font-bold{% elif company.usage_count > (company.limit * 0.8) %}bg-yellow-200 text-yellow-800{% else %}bg-green-200 text-green-800{% endif %}">
+                                {% if company.usage_count >= company.limit %}BLOCKED{% elif company.usage_count > (company.limit * 0.8) %}Warning{% else %}Normal{% endif %}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function fetchUpdates() {
+            fetch('/api/dashboard-data')
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(tenant => {
+                        // Update Count
+                        const countEl = document.getElementById(`count-${tenant.api_key}`);
+                        if (countEl) countEl.innerText = tenant.usage_count;
+
+                        // Update Status Badge & Color
+                        const statusEl = document.getElementById(`status-${tenant.api_key}`);
+                        if (statusEl) {
+                            statusEl.innerText = tenant.status;
+                            statusEl.className = "py-1 px-3 rounded-full text-xs " + tenant.status_class;
+                        }
+                    });
+                });
+        }
+        setInterval(fetchUpdates, 2000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Python temporary files (Junk)
+__pycache__/
+*.pyc
+
+# Virtual Environment (Huge folder, do not upload)
+venv/
+env/
+
+# Mac System files (If you are on Mac)
+.DS_Store
+
+# Environment variables (If you use them later)
+.env
+.idea/
